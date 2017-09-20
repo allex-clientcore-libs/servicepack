@@ -65,13 +65,14 @@ function createServicePackRegistry(execlib,servicePackSuite) {
   };
   ServicePackRegistry.prototype.maybeDoTasks = function (modulename, servicepack) {
     if (!servicepack.tasks) {
-      return;
+      return q(true);
     }
     if (!taskRegistry.moduleDone(modulename)) {
-      this.doDaSide('tasks', servicepack).then(
+      return this.doDaSide('tasks', servicepack).then(
         this.onTasksDone.bind(this, modulename)
       );
     }
+    return q(taskRegistry.modulesDone.waitFor(modulename));
   };
   ServicePackRegistry.prototype.getClientSide = function (modulename) {
     return this.clientSides.get(modulename);
@@ -99,16 +100,20 @@ function createServicePackRegistry(execlib,servicePackSuite) {
       if (!isAServicePack(servicepack, modulename)) {
         throw NotAllexModuleError(modulename);
       }
-      this.maybeDoTasks(modulename, servicepack);
-      if (!this.clientSides.busy(modulename)) {
-        this.clientSides.waitFor(modulename);
-        return this.doDaSide('client', servicepack).then(
-          this.onClientSideDone.bind(this, modulename)
-        );
-      }
-      return this.clientSides.waitFor(modulename);
+      return this.maybeDoTasks(modulename, servicepack).then(
+        this.onTasksForClientSide.bind(this, modulename, servicepack)
+      );
     }
     return q(cs);
+  };
+  ServicePackRegistry.prototype.onTasksForClientSide = function (modulename, servicepack) {
+    if (!this.clientSides.busy(modulename)) {
+      this.clientSides.waitFor(modulename);
+      return this.doDaSide('client', servicepack).then(
+        this.onClientSideDone.bind(this, modulename)
+      );
+    }
+    return this.clientSides.waitFor(modulename);
   };
   ServicePackRegistry.prototype.onClientSideDone = function (modulename, sinkmap) {
     if (this.getClientSide(modulename)) {
@@ -136,16 +141,20 @@ function createServicePackRegistry(execlib,servicePackSuite) {
       if (!isAServicePack(servicepack, modulename)) {
         throw NotAllexModuleError(modulename);
       }
-      this.maybeDoTasks(modulename, servicepack);
-      if (!this.serverSides.busy(modulename)) {
-        this.serverSides.waitFor(modulename);
-        return this.doDaSide('server', servicepack).then(
-          this.onServerSideDone.bind(this, modulename)
-        );
-      }
-      return this.serverSides.waitFor(modulename);
+      return this.maybeDoTasks(modulename, servicepack).then(
+        this.onTasksForServerSide.bind(this, modulename, servicepack)
+      );
     }
     return q(ss);
+  };
+  ServicePackRegistry.prototype.onTasksForServerSide = function (modulename, servicepack) {
+    if (!this.serverSides.busy(modulename)) {
+      this.serverSides.waitFor(modulename);
+      return this.doDaSide('server', servicepack).then(
+        this.onServerSideDone.bind(this, modulename)
+      );
+    }
+    return this.serverSides.waitFor(modulename);
   };
   ServicePackRegistry.prototype.onServerSideDone = function (modulename, service) {
     var _ce = console.error.bind(console), _pe = process.exit.bind(process);

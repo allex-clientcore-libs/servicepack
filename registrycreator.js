@@ -182,7 +182,7 @@ function createServicePackRegistry(execlib,servicePackSuite) {
     return this.moduleRegistry.get(modulename);
   };
   function onLoadDependencies (cb, defer) {
-    var args = Array.prototype.slice.call(arguments, 2);
+    var args = Array.prototype.slice.call(arguments, 2), ret;
     args.unshift(execlib);
     if (lib.isString(cb)) {
       try {
@@ -196,9 +196,13 @@ function createServicePackRegistry(execlib,servicePackSuite) {
         return;
       }
     }
-    var ret = cb.apply(null, args);
-    cb = null;
-    defer.resolve(ret);
+    try {
+      ret = cb.apply(null, args);
+      cb = null;
+      defer.resolve(ret);
+    } catch (e) {
+      defer.reject(e);
+    }
     defer = null;
   }
   ServicePackRegistry.prototype.doDaSide = function (sidename, servicepack) {
